@@ -7,8 +7,10 @@ from ..ball import Ball
 from ..brick import Brick
 from ..constants import *
 from ..paddle import Paddle
+from ..rect import Rect
 from ..state import BaseState, StateMachine
 from ..wall import Wall
+from ..world import World
 
 
 class InternalState(Enum):
@@ -25,75 +27,33 @@ class MainGameState(BaseState):
         self.level = 0
         self.state = InternalState.SERVE
 
-        self.walls: list[Wall] = []
+        walls: list[Wall] = [
+            Wall(0, UNIT_LENGTH, UNIT_LENGTH, WINDOW_HEIGHT),  # left wall
+            Wall(
+                WINDOW_WIDTH - UNIT_LENGTH, UNIT_LENGTH, UNIT_LENGTH, WINDOW_HEIGHT
+            ),  # right wall
+            Wall(
+                0, UNIT_LENGTH, WINDOW_WIDTH, UNIT_LENGTH, is_upper=True
+            ),  # top/upper/back wall
+            Wall(
+                0, WINDOW_HEIGHT, WINDOW_WIDTH, UNIT_LENGTH, is_lower=True
+            ),  # bottom/lower/front/death wall
+        ]
         self.bricks: list[Brick] = []
         self.paddle = Paddle()
         self.ball = Ball(self.paddle.midtop)
 
-    def enter(self):
-        self.score = 0
-        self.health = 3
-        self.level = 1
-        self.state = InternalState.SERVE
-
-        self.walls.append(Wall(0, UNIT_LENGTH, UNIT_LENGTH, WINDOW_HEIGHT))  # left wall
-        self.walls.append(
-            Wall(WINDOW_WIGHT - UNIT_LENGTH, UNIT_LENGTH, UNIT_LENGTH, WINDOW_HEIGHT)
-        )  # right wall
-        self.walls.append(
-            Wall(0, UNIT_LENGTH, WINDOW_WIGHT, UNIT_LENGTH, True)
-        )  # top/upper/back wall
-        bricks.load(self.bricks)
-        self.bricks_number = len(self.bricks)
-        self.upper_wall_hit = False
-
-    def exit(self):
-        self.walls.clear()
-        self.bricks.clear()
-
-    def process(self, event: pygame.event.Event):
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-            self.state = InternalState.PLAY
-        self.paddle.process(event)
-
-    def update(self, delta_time: float):
-        self.paddle.update(delta_time)
-        for wall in self.walls:
-            collision.resolve(self.paddle, wall)
-
-        if self.state == InternalState.SERVE:
-            self.serve_update(delta_time)
-        elif self.state == InternalState.PLAY:
-            self.play_update(delta_time)
-
-    def serve_update(self, _: float):
-        self.ball.midbottom = self.paddle.midtop
-
-    def play_update(self, delta_time: float):
-        self.ball.update(delta_time)
-        if self.ball.top > WINDOW_HEIGHT:
-            self.health -= 1
-            self.paddle.reset()
-            self.ball.reset(self.paddle.midtop)
-            self.upper_wall_hit = False
-            if self.health == 0:
-                self.state_machine.change("GameOver", score=self.score)
+        def on_ball_brick_collision(a: Rect, b: Rect):
+            if isinstance(a, Ball) and isinstance(b, Brick):
+                brick = b
+            elif isinstance(a, Brick) and isinstance(b, Ball):
+                brick = a
             else:
-                self.state = InternalState.SERVE
-        else:
-            collision.resolve(self.ball, self.paddle)
-            for wall in self.walls:
-                if (
-                    collision.resolve(self.ball, wall)
-                    and wall.upper
-                    and not self.upper_wall_hit
-                ):
-                    self.upper_wall_hit = True
-                    self.paddle.width /= 2
-            for brick in self.bricks:
-                if not brick.broken and collision.resolve(self.ball, brick):
-                    self.bricks_number -= 1
-                    self.score += brick.break_score
+                return
+
+            self.score += brick.break_score
+            self.bricks_number -= 1
+
             if self.bricks_number == 0:
                 if self.level == 2:
                     self.state_machine.change("GameOver", score=self.score)
@@ -108,17 +68,85 @@ class MainGameState(BaseState):
                     self.ball.reset(self.paddle.midtop)
                     self.upper_wall_hit = False
 
+        def on_ball_upper_wall_collision(a: Rect, b: Rect):
+            if isinstance(a, Ball) and isinstance(b, Wall):
+                wall = b
+            elif isinstance(a, Wall) and isinstance(b, Ball):
+                wall = a
+            else:
+                return
+
+            if wall.is_upper and not self.upper_wall_hit:
+                self.upper_wall_hit = True
+                self.paddle.width /= 2
+
+        def on_ball_lower_wall_collision(a: Rect, b: Rect):
+            if isinstance(a, Ball) and isinstance(b, Wall):
+                wall = b
+            elif isinstance(a, Wall) and isinstance(b, Ball):
+                wall = a
+            else:
+                return
+
+            if wall.is_lower:
+                self.health -= 1
+                self.paddle.reset()
+                self.ball.reset(self.paddle.midtop)
+                self.upper_wall_hit = False
+                if self.health == 0:
+                    self.state_machine.change("GameOver", score=self.score)
+                else:
+                    self.state = InternalState.SERVE
+
+        def collision_callback(a: Rect, b: Rect):
+            for listener in collision.listeners:
+                listener.on_collision(a, b)
+            on_ball_brick_collision(a, b)
+            on_ball_upper_wall_collision(a, b)
+            on_ball_lower_wall_collision(a, b)
+
+        self.world = World(collision_callback)
+        for wall in walls:
+            self.world.static_rects.append(wall)
+        self.world.dynamic_rects.append(self.paddle)
+        self.world.dynamic_rects.append(self.ball)
+
+    def enter(self):
+        self.score = 0
+        self.health = 3
+        self.level = 1
+        self.state = InternalState.SERVE
+
+        bricks.load(self.bricks)
+        self.bricks_number = len(self.bricks)
+        self.upper_wall_hit = False
+        for brick in self.bricks:
+            self.world.static_rects.append(brick)
+
+    def exit(self):
+        pass
+
+    def process(self, event: pygame.event.Event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            self.state = InternalState.PLAY
+        self.paddle.process(event)
+
+    def update(self, delta_time: float):
+        self.world.update(delta_time)
+
+        if self.state == InternalState.SERVE:
+            self.ball.midbottom = self.paddle.midtop
+
     def render(self, screen: pygame.Surface):
         screen.fill(Color.BLACK)
 
         self.render_hud(screen)
-        for wall in self.walls:
-            wall.render(screen)
-        for brick in self.bricks:
-            if not brick.broken:
-                brick.render(screen)
-        self.paddle.render(screen)
-        self.ball.render(screen)
+        for static_rect in self.world.static_rects:
+            if not static_rect.is_destroyed:
+                static_rect.render(screen)
+        for dynamic_rect in self.world.dynamic_rects:
+            if not dynamic_rect.is_destroyed:
+                dynamic_rect.render(screen)
 
         pygame.display.flip()
 

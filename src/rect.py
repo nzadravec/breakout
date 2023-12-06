@@ -12,6 +12,8 @@ class Rect:
         self.rect = pygame.Rect(left, top, width, height)  # for drawing/rendering
         self._vec = pygame.Vector2()  # for non-primitive properties (e.g. midtop)
 
+        self.is_destroyed = False
+
     @property
     def left(self) -> float:
         return self._left
@@ -94,11 +96,8 @@ class Rect:
         self.centerx = value.x
         self.bottom = value.y
 
-    def hit(self, rect: "Rect"):
-        pass
-
-    def hit_by(self, rect: "Rect"):
-        pass
+    def render(self, screen: pygame.Surface):
+        raise NotImplementedError
 
     @staticmethod
     def colliderect(a: "Rect", b: "Rect") -> bool:
@@ -112,10 +111,9 @@ class Rect:
         )
 
     @staticmethod
-    def calculate_overlap(kinematic: "Rect", static: "Rect"):
+    def calculate_overlap(kinematic: "Rect", static: "Rect", overlap: pygame.Vector2):
         """Calculate the overlap between two rectangles."""
 
-        overlap = pygame.Vector2()
         if static.centerx < kinematic.centerx:
             overlap.x = kinematic.left - static.right
         else:
@@ -124,4 +122,3 @@ class Rect:
             overlap.y = kinematic.top - static.bottom
         else:
             overlap.y = kinematic.bottom - static.top
-        return overlap

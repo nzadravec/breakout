@@ -15,7 +15,7 @@ class Color:
 SCALE_FACTOR = 5
 
 
-WINDOW_WIGHT = SCALE_FACTOR * 160
+WINDOW_WIDTH = SCALE_FACTOR * 160
 WINDOW_HEIGHT = SCALE_FACTOR * 105
 
 # used for HUD height, wall thickess, paddle bottom margin, etc.

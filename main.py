@@ -9,7 +9,7 @@ from src.states import GameOverState, MainGameState, MainMenuState
 class Game:
     def __init__(self):
         pygame.display.set_caption("Breakout")
-        self.screen = pygame.display.set_mode((WINDOW_WIGHT, WINDOW_HEIGHT))
+        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
 
         self.state_machine = StateMachine(

@@ -4,7 +4,7 @@ from .constants import *
 
 def load(
     bricks: list[Brick],
-    bricks_layer_centerx: int = WINDOW_WIGHT // 2,
+    bricks_layer_centerx: int = WINDOW_WIDTH // 2,
     bricks_layer_centery: int = WINDOW_HEIGHT // 3,
     brick_width: int = BRICK_WIDTH,
     brick_height: int = BRICK_HEIGHT,
