@@ -8,7 +8,7 @@ class Paddle(DynamicRect):
     def __init__(
         self,
         left: float = (WINDOW_WIDTH - PADDLE_WIDTH) // 2,
-        top: float = WINDOW_HEIGHT - UNIT_LENGTH - PADDLE_HEIGHT // 2,
+        top: float = WINDOW_HEIGHT - UNIT_LENGTH - PADDLE_HEIGHT,
         width: float = PADDLE_WIDTH,
         height: float = PADDLE_HEIGHT,
         speed: float = PADDLE_SPEED,
